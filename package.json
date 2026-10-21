@@ -1,0 +1,12 @@
+{
+  "name": "hotel-ordering-system",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A responsive hotel room-service ordering and staff management system.",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=22.13"
+  }
+}
