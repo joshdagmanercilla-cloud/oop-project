@@ -1,0 +1,11 @@
+INSERT INTO menu_items (name, description, price, category, image_url, available, featured) VALUES
+('Sunrise longganisa plate', 'Garlic rice, two sunny eggs, house-made pork longganisa and atchara.', 485, 'Breakfast', 'https://images.unsplash.com/photo-1533089860892-a7c6f0a88666?auto=format&fit=crop&w=900&q=85', 1, 1),
+('Pandan French toast', 'Brioche dipped in pandan custard, coconut cream and seasonal fruit.', 395, 'Breakfast', 'https://images.unsplash.com/photo-1484723091739-30a097e8f929?auto=format&fit=crop&w=900&q=85', 1, 1),
+('Garden greens & mango', 'Local greens, ripe mango, salted cashews and calamansi vinaigrette.', 445, 'Lunch', 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=900&q=85', 1, 1),
+('Crispy pata bao', 'Slow-cooked pork, pickled papaya and chili-lime glaze in soft bao buns.', 625, 'Lunch', 'https://images.unsplash.com/photo-1563245372-f21724e3856d?auto=format&fit=crop&w=900&q=85', 1, 0),
+('Pan-seared catch of the day', 'Fresh local fish, charred vegetables and ginger-calamansi butter.', 795, 'Dinner', 'https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?auto=format&fit=crop&w=900&q=85', 1, 1),
+('Wagyu tapa bowl', 'Tender beef tapa, garlic rice, atchara and a slow-cooked egg.', 735, 'Dinner', 'https://images.unsplash.com/photo-1547592180-85f173990554?auto=format&fit=crop&w=900&q=85', 1, 1),
+('Truffle kesong puti fries', 'Golden fries, local white cheese, truffle oil and fresh herbs.', 365, 'Snacks', 'https://images.unsplash.com/photo-1573080496219-bb080dd4f877?auto=format&fit=crop&w=900&q=85', 1, 1),
+('Ube cheesecake', 'Silky ube cheesecake on a toasted coconut and biscuit base.', 325, 'Snacks', 'https://images.unsplash.com/photo-1578985545062-69928b1d9587?auto=format&fit=crop&w=900&q=85', 1, 1),
+('Calamansi spritz', 'Fresh calamansi, sparkling water, mint and a touch of honey.', 225, 'Drinks', 'https://images.unsplash.com/photo-1544145945-f90425340c7e?auto=format&fit=crop&w=900&q=85', 1, 1),
+('Kapeng barako', 'Locally roasted Batangas coffee, served hot with milk on the side.', 195, 'Drinks', 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?auto=format&fit=crop&w=900&q=85', 1, 1);
