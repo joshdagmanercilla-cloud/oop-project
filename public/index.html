@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
+  <link rel="manifest" href="./manifest.json">
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#17382f">
@@ -129,5 +130,15 @@
   <div class="confirm-scrim" id="confirm-scrim"><div class="confirmation-card"><span class="confirmation-check"><i class="fa-solid fa-check" aria-hidden="true"></i></span><p class="eyebrow"><span></span> CONFIRMED WITH CARE</p><h2>On its <em>way to you.</em></h2><p class="confirmation-order" id="confirmation-order"></p><p class="confirmation-details">Your order has been saved and the kitchen has been notified. We'll keep you posted on its progress.</p><button class="button button-green" id="confirmation-track">Track your order <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></button></div></div>
   <dialog id="menu-dialog" class="menu-dialog"><form id="menu-form"><div class="dialog-heading"><div><p class="eyebrow"><span></span> FROM THE KITCHEN</p><h2 id="menu-dialog-title">Add a <em>dish.</em></h2></div><button type="button" id="close-menu-dialog" class="close-button" aria-label="Close menu editor"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button></div><input type="hidden" id="menu-item-id"><label for="menu-item-name">Dish name</label><input id="menu-item-name" maxlength="100" required><label for="menu-item-description">Description</label><textarea id="menu-item-description" maxlength="500" rows="2" required></textarea><div class="dialog-form-row"><div><label for="menu-item-price">Price · ₱</label><input id="menu-item-price" type="number" min="1" step="1" required></div><div><label for="menu-item-category">Category</label><select id="menu-item-category" required><option>Breakfast</option><option>Lunch</option><option>Dinner</option><option>Snacks</option><option>Drinks</option></select></div></div><label for="menu-item-image">Dish photo <span>(optional, JPG/PNG/WebP up to 3 MB)</span></label><input id="menu-item-image" type="file" accept="image/jpeg,image/png,image/webp"><label class="check-row"><input id="menu-item-available" type="checkbox" checked> Available to guests</label><label class="check-row"><input id="menu-item-featured" type="checkbox"> Feature on the home page</label><p id="menu-form-error" class="login-error" role="alert"></p><button class="button button-green" type="submit" id="save-menu-button">Save dish <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></button></form></dialog>
   <dialog id="order-dialog" class="order-dialog"><div id="order-dialog-content"></div><button class="close-button dialog-close" id="close-order-dialog" aria-label="Close order details"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button></dialog>
+
+  <script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js')
+        .then((reg) => console.log('Service Worker registered successfully!', reg.scope))
+        .catch((err) => console.log('Service Worker registration failed:', err));
+    });
+  }
+</script>
 </body>
 </html>
