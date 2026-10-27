@@ -286,23 +286,49 @@ async function handleApi(req, res, url) {
   return json(res, 404, { error: 'Not found.' });
 }
 
-const mimeTypes = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.webp': 'image/webp' };
+const mimeTypes = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.webp': 'image/webp', '.json': 'application/json; charset=utf-8' };
 const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
     if (url.pathname.startsWith('/api/')) return await handleApi(req, res, url);
+    
     let requestedPath = decodeURIComponent(url.pathname);
     if (requestedPath === '/') requestedPath = '/index.html';
-    const filepath = path.resolve(PUBLIC, `.${requestedPath}`);
-    if (!filepath.startsWith(`${PUBLIC}${path.sep}`) && filepath !== path.join(PUBLIC, 'index.html')) return json(res, 403, { error: 'Forbidden.' });
-    if (!fs.existsSync(filepath) || !fs.statSync(filepath).isFile()) return json(res, 404, { error: 'Not found.' });
-    res.writeHead(200, { 'Content-Type': mimeTypes[path.extname(filepath)] || 'application/octet-stream', 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'strict-origin-when-cross-origin' });
+    
+    let filepath = path.resolve(PUBLIC, `.${requestedPath}`);
+    
+    // Explicit support para sa service worker at manifest routing
+    if (requestedPath === '/sw.js') {
+      filepath = path.join(PUBLIC, 'sw.js');
+    } else if (requestedPath === '/manifest.json') {
+      filepath = path.join(PUBLIC, 'manifest.json');
+    }
+
+    if (!filepath.startsWith(`${PUBLIC}${path.sep}`) && filepath !== path.join(PUBLIC, 'index.html') && filepath !== path.join(PUBLIC, 'sw.js') && filepath !== path.join(PUBLIC, 'manifest.json')) {
+      return json(res, 403, { error: 'Forbidden.' });
+    }
+    
+    if (!fs.existsSync(filepath) || !fs.statSync(filepath).isFile()) {
+      if (req.headers.accept && req.headers.accept.includes('text/html')) {
+        filepath = path.join(PUBLIC, 'index.html');
+      } else {
+        return json(res, 404, { error: 'Not found.' });
+      }
+    }
+
+    res.writeHead(200, { 
+      'Content-Type': mimeTypes[path.extname(filepath)] || 'application/octet-stream', 
+      'X-Content-Type-Options': 'nosniff', 
+      'Referrer-Policy': 'strict-origin-when-cross-origin',
+      'Cache-Control': (requestedPath === '/sw.js' || requestedPath === '/manifest.json') ? 'no-cache, no-store, must-revalidate' : 'public, max-age=3600'
+    });
     fs.createReadStream(filepath).pipe(res);
   } catch (error) {
     if (!res.headersSent) json(res, error.status || 500, { error: error.status ? error.message : 'Something went wrong. Please try again.' });
     if (!error.status) console.error(error);
   }
 });
+
 server.listen(PORT, () => {
   console.log(`Harbor House ordering system: http://localhost:${PORT}`);
   console.log(`Local staff login: ${ADMIN_EMAIL} / ${ADMIN_PASSWORD}`);
