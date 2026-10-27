@@ -1,38 +1,46 @@
-const CACHE_NAME = 'harbor-house-cache-v1';
+const CACHE_NAME = 'harbor-house-cache-v2';
 const assetsToCache = [
   '/',
   '/index.html',
-  '/styles.css', // Pinalitan ng tamang file name mo
-  '/app.js'      // Pinalitan ng tamang file name mo
+  '/styles.css',
+  '/app.js'
 ];
 
-// Install the service worker and cache all essential files
+// Install the service worker safely
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      console.log('Opened cache, adding assets...');
-      return cache.addAll(assetsToCache);
-    }).catch(err => {
-      console.error('Failed to cache assets during install:', err);
+    caches.open(CACHE_NAME).then(async (cache) => {
+      for (const asset of assetsToCache) {
+        try {
+          await cache.add(asset);
+        } catch (err) {
+          console.warn('Failed to cache:', asset, err);
+        }
+      }
     })
   );
-  self.skipWaiting(); // Para mag-activate agad
+  self.skipWaiting();
 });
 
-// Activate service worker immediately
+// Activate immediately
 self.addEventListener('activate', (event) => {
   event.waitUntil(self.clients.claim());
 });
 
-// Intercept network requests and serve from cache if offline
+// Fetch and serve from cache if offline
 self.addEventListener('fetch', (event) => {
+  // Huwag i-cache ang API calls para laging updated ang orders at menu mula sa database
+  if (event.request.url.includes('/api/')) {
+    return;
+  }
+
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
       if (cachedResponse) {
-        return cachedResponse; // Galing sa cache kung offline o meron
+        return cachedResponse;
       }
       return fetch(event.request).catch(() => {
-        // Optional fallback page dito kung sakaling offline at wala sa cache
+        // Fallback sa index.html kapag offline at nag-navigate
         if (event.request.mode === 'navigate') {
           return caches.match('/index.html');
         }
