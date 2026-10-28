@@ -295,16 +295,20 @@ const server = http.createServer(async (req, res) => {
     let requestedPath = decodeURIComponent(url.pathname);
     if (requestedPath === '/') requestedPath = '/index.html';
     
-    // Direktang kunin ang safe path mula sa public directory gamit ang path.join
-    let filepath = path.join(PUBLIC, requestedPath);
+    let filepath = path.resolve(PUBLIC, `.${requestedPath}`);
+    
+    // Explicit support para sa service worker at manifest routing
+    if (requestedPath === '/sw.js') {
+      filepath = path.join(PUBLIC, 'sw.js');
+    } else if (requestedPath === '/manifest.json') {
+      filepath = path.join(PUBLIC, 'manifest.json');
+    }
 
-    // Siguraduhing ligtas at nasa loob ng public folder ang path (iwas directory traversal attack)
-    if (!filepath.startsWith(PUBLIC)) {
+    if (!filepath.startsWith(`${PUBLIC}${path.sep}`) && filepath !== path.join(PUBLIC, 'index.html') && filepath !== path.join(PUBLIC, 'sw.js') && filepath !== path.join(PUBLIC, 'manifest.json')) {
       return json(res, 403, { error: 'Forbidden.' });
     }
     
     if (!fs.existsSync(filepath) || !fs.statSync(filepath).isFile()) {
-      // Kung HTML navigation request at hindi nahanap, ibigay ang index.html para sa SPA routing
       if (req.headers.accept && req.headers.accept.includes('text/html')) {
         filepath = path.join(PUBLIC, 'index.html');
       } else {
@@ -312,15 +316,11 @@ const server = http.createServer(async (req, res) => {
       }
     }
 
-    const ext = path.extname(filepath);
-    const isServiceWorker = requestedPath === '/sw.js';
-
     res.writeHead(200, { 
-      'Content-Type': mimeTypes[ext] || 'application/octet-stream', 
+      'Content-Type': mimeTypes[path.extname(filepath)] || 'application/octet-stream', 
       'X-Content-Type-Options': 'nosniff', 
       'Referrer-Policy': 'strict-origin-when-cross-origin',
-      // Huwag i-cache ang Service Worker para laging bagong bersyon ang makuha ng PWA
-      'Cache-Control': isServiceWorker ? 'no-cache, no-store, must-revalidate' : 'public, max-age=3600'
+      'Cache-Control': (requestedPath === '/sw.js' || requestedPath === '/manifest.json') ? 'no-cache, no-store, must-revalidate' : 'public, max-age=3600'
     });
     fs.createReadStream(filepath).pipe(res);
   } catch (error) {
