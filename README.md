@@ -14,6 +14,10 @@ node server.js
 
 You can also run `npm.cmd start` on Windows if PowerShell's script policy blocks `npm`. Open [http://localhost:3000](http://localhost:3000). Set `PORT` to change the port.
 
+## Install and use offline
+
+Open the site at [http://localhost:3000](http://localhost:3000) while online, then use your browser's **Install app** or **Add to Home Screen** option. The app shell and menu are cached for later offline visits. Keep the server running for new orders, order tracking updates, and staff tools; these operations cannot be completed offline. Menu photos and other remote assets are cached as they are loaded, so visit the pages you want available offline before disconnecting. Service workers require HTTPS on deployed sites; `localhost` is supported for local development.
+
 Local staff login:
 
 - Email: `admin@harborhouse.test`
@@ -39,7 +43,7 @@ The database tables are `admins`, `menu_items`, `orders`, `order_items`, `paymen
 
 Cash to room and cash at the hotel counter are recorded as pending payments for staff to settle. GCash is available as a payment selection, but this project does not collect or verify GCash payments. Completing that integration requires a hotel merchant account, payment-provider API credentials, a verified callback/webhook, and provider-specific reconciliation; until configured, staff must verify payment outside the site before marking it as paid.
 
-Sample food photography, web fonts, and the menu QR library load from external CDNs. Internet access is needed for those remote assets. The QR code points to the current site address with the menu route selected; to scan it from a phone during local development, open the app using the computer's LAN IP address instead of `localhost`. Staff can upload JPG, PNG, or WebP menu photos (maximum 3 MB); uploaded files are stored under `public/uploads`.
+Sample food photography, web fonts, and the menu QR library load from external CDNs. Internet access is needed to load these assets the first time. The QR code points to the current site address with the menu route selected; to scan it from a phone during local development, open the app using the computer's LAN IP address instead of `localhost`. Staff can upload JPG, PNG, or WebP menu photos (maximum 3 MB); uploaded files are stored under `public/uploads`.
 
 ## Deployment notes
 

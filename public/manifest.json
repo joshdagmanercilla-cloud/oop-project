@@ -1,0 +1,19 @@
+{
+  "id": "/",
+  "name": "Harbor House | In-Room Dining",
+  "short_name": "Harbor House",
+  "description": "Browse Harbor House room service and order from your room.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f8f7f3",
+  "theme_color": "#17382f",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

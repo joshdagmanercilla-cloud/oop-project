@@ -73,6 +73,18 @@ if (!db.prepare('SELECT id FROM admins WHERE email = ?').get(ADMIN_EMAIL)) {
 
 const sessions = new Map();
 const loginAttempts = new Map();
+const stateSweep = setInterval(() => {
+  const now = Date.now();
+  for (const [token, session] of sessions) {
+    if (session.expires < now) sessions.delete(token);
+  }
+  for (const [ip, attempts] of loginAttempts) {
+    const recent = attempts.filter(time => time > now - 15 * 60 * 1000);
+    if (recent.length) loginAttempts.set(ip, recent);
+    else loginAttempts.delete(ip);
+  }
+}, 15 * 60 * 1000);
+stateSweep.unref?.();
 const getCookie = (req, name) => (req.headers.cookie || '').split(';').map(part => part.trim()).find(part => part.startsWith(`${name}=`))?.slice(name.length + 1);
 const readBody = req => new Promise((resolve, reject) => {
   let size = 0;
@@ -83,7 +95,14 @@ const readBody = req => new Promise((resolve, reject) => {
     chunks.push(chunk);
   });
   req.on('end', () => {
-    try { resolve(chunks.length ? JSON.parse(Buffer.concat(chunks).toString('utf8')) : {}); }
+    try {
+      const body = chunks.length ? JSON.parse(Buffer.concat(chunks).toString('utf8')) : {};
+      if (!body || typeof body !== 'object' || Array.isArray(body)) {
+        reject(Object.assign(new Error('Request body must be a JSON object.'), { status: 400 }));
+        return;
+      }
+      resolve(body);
+    }
     catch { reject(Object.assign(new Error('Request body must be valid JSON.'), { status: 400 })); }
   });
   req.on('error', reject);
@@ -139,6 +158,7 @@ async function handleApi(req, res, url) {
     if (typeof instructions !== 'string' || instructions.length > 500) return json(res, 400, { error: 'Special requests must be 500 characters or fewer.' });
     const quantities = new Map();
     for (const item of items) {
+      if (!item || typeof item !== 'object' || Array.isArray(item)) return json(res, 400, { error: 'One or more order items are invalid.' });
       if (!Number.isSafeInteger(Number(item.id)) || !Number.isInteger(Number(item.quantity)) || Number(item.quantity) < 1 || Number(item.quantity) > 20) return json(res, 400, { error: 'One or more item quantities are invalid.' });
       quantities.set(Number(item.id), (quantities.get(Number(item.id)) || 0) + Number(item.quantity));
     }
@@ -286,25 +306,50 @@ async function handleApi(req, res, url) {
   return json(res, 404, { error: 'Not found.' });
 }
 
-const mimeTypes = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.webp': 'image/webp' };
+const mimeTypes = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.webp': 'image/webp', '.json': 'application/json; charset=utf-8' };
 const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
     if (url.pathname.startsWith('/api/')) return await handleApi(req, res, url);
+
     let requestedPath = decodeURIComponent(url.pathname);
     if (requestedPath === '/') requestedPath = '/index.html';
-    const filepath = path.resolve(PUBLIC, `.${requestedPath}`);
-    if (!filepath.startsWith(`${PUBLIC}${path.sep}`) && filepath !== path.join(PUBLIC, 'index.html')) return json(res, 403, { error: 'Forbidden.' });
-    if (!fs.existsSync(filepath) || !fs.statSync(filepath).isFile()) return json(res, 404, { error: 'Not found.' });
-    res.writeHead(200, { 'Content-Type': mimeTypes[path.extname(filepath)] || 'application/octet-stream', 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'strict-origin-when-cross-origin' });
+
+    let filepath = path.resolve(PUBLIC, `.${requestedPath}`);
+
+    // Explicit support para sa service worker at manifest routing
+    if (requestedPath === '/sw.js') {
+      filepath = path.join(PUBLIC, 'sw.js');
+    } else if (requestedPath === '/manifest.json') {
+      filepath = path.join(PUBLIC, 'manifest.json');
+    }
+
+    if (!filepath.startsWith(`${PUBLIC}${path.sep}`) && filepath !== path.join(PUBLIC, 'index.html') && filepath !== path.join(PUBLIC, 'sw.js') && filepath !== path.join(PUBLIC, 'manifest.json')) {
+      return json(res, 403, { error: 'Forbidden.' });
+    }
+
+    if (!fs.existsSync(filepath) || !fs.statSync(filepath).isFile()) {
+      if (req.headers.accept && req.headers.accept.includes('text/html')) {
+        filepath = path.join(PUBLIC, 'index.html');
+      } else {
+        return json(res, 404, { error: 'Not found.' });
+      }
+    }
+
+    res.writeHead(200, {
+      'Content-Type': mimeTypes[path.extname(filepath)] || 'application/octet-stream',
+      'X-Content-Type-Options': 'nosniff',
+      'Referrer-Policy': 'strict-origin-when-cross-origin',
+      'Cache-Control': (requestedPath === '/sw.js' || requestedPath === '/manifest.json') ? 'no-cache, no-store, must-revalidate' : 'public, max-age=3600'
+    });
     fs.createReadStream(filepath).pipe(res);
   } catch (error) {
     if (!res.headersSent) json(res, error.status || 500, { error: error.status ? error.message : 'Something went wrong. Please try again.' });
     if (!error.status) console.error(error);
   }
 });
+
 server.listen(PORT, () => {
   console.log(`Harbor House ordering system: http://localhost:${PORT}`);
-  console.log(`Local staff login: ${ADMIN_EMAIL} / ${ADMIN_PASSWORD}`);
   if (process.env.NODE_ENV !== 'production') console.warn('Demo credentials are enabled. Set ADMIN_EMAIL and ADMIN_PASSWORD before deployment.');
 });

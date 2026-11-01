@@ -3,27 +3,58 @@ const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 const currency = amount => `₱${Number(amount || 0).toLocaleString('en-PH')}`;
 const manilaDate = (value, options) => new Date(value).toLocaleString('en-PH', { timeZone: 'Asia/Manila', ...options });
 const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
-const saved = (key, fallback) => { try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch { return fallback; } };
-const save = (key, value) => localStorage.setItem(key, JSON.stringify(value));
+const saved = (key, fallback, validate = () => true) => {
+  try {
+    const value = JSON.parse(localStorage.getItem(key));
+    return value == null || !validate(value) ? fallback : value;
+  } catch {
+    return fallback;
+  }
+};
+const save = (key, value) => {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+    return true;
+  } catch {
+    return false;
+  }
+};
+const validCart = value => Array.isArray(value) && value.every(line => (
+  line && Number.isSafeInteger(line.id) && Number.isInteger(line.quantity) && line.quantity >= 1 && line.quantity <= 20
+));
+const validOrders = value => Array.isArray(value) && value.every(order => (
+  order && typeof order.orderNumber === 'string' && typeof order.accessToken === 'string' && Array.isArray(order.items)
+));
 const placeholderImage = 'https://images.unsplash.com/photo-1547592180-85f173990554?auto=format&fit=crop&w=900&q=80';
 const app = {
-  menu: [], menuLoaded: false, category: 'All', search: '', cart: saved('hh_cart', []), orders: saved('hh_orders', []), admin: null,
-  adminOrders: [], guests: [], currentAdminView: 'overview', polling: null, guestPolling: null, pendingCheckoutOrder: null,
+  menu: [], menuLoaded: false, category: 'All', search: '', cart: saved('hh_cart', [], validCart), orders: saved('hh_orders', [], validOrders), admin: null,
+  adminOrders: [], guests: [], currentAdminView: 'overview', polling: null, guestPolling: null, adminLoading: false, pendingCheckoutOrder: null, submittingOrder: false,
 };
 
 async function api(url, options = {}) {
-  const response = await fetch(url, {
-    credentials: 'same-origin',
-    ...options,
-    headers: { ...(options.body ? { 'Content-Type': 'application/json' } : {}), ...(options.headers || {}) },
-  });
-  let payload;
-  try { payload = await response.json(); } catch { payload = {}; }
-  if (!response.ok) {
-    if (response.status === 401 && url.startsWith('/api/admin/') && url !== '/api/admin/login') setAdmin(null);
-    throw new Error(payload.error || 'Something went wrong. Please try again.');
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 12000);
+  try {
+    const response = await fetch(url, {
+      credentials: 'same-origin',
+      ...options,
+      signal: controller.signal,
+      headers: { ...(options.body ? { 'Content-Type': 'application/json' } : {}), ...(options.headers || {}) },
+    });
+    let payload;
+    try { payload = await response.json(); } catch { payload = {}; }
+    if (!response.ok) {
+      if (response.status === 401 && url.startsWith('/api/admin/') && url !== '/api/admin/login') setAdmin(null);
+      throw new Error(payload.error || `Request failed (${response.status}). Please try again.`);
+    }
+    return payload;
+  } catch (error) {
+    if (error.name === 'AbortError') throw new Error('The request took too long. Check your connection and try again.');
+    if (error instanceof TypeError) throw new Error('Unable to reach the server. Check your connection and try again.');
+    throw error;
+  } finally {
+    clearTimeout(timeout);
   }
-  return payload;
 }
 function toast(message, error = false) {
   const node = document.createElement('div');
@@ -110,7 +141,13 @@ function renderCart() {
   }).join('');
   $('#cart-items').innerHTML = lines || '<div class="cart-empty"><i class="fa-solid fa-bag-shopping" aria-hidden="true"></i><h3>A little room in here.</h3><p>Your bag is waiting for something good from the kitchen.</p></div>';
   $('#cart-subtotal').textContent = currency(cartTotal());
-  $('#checkout-button').disabled = !app.cart.length;
+  $('#checkout-button').disabled = !app.cart.length || !navigator.onLine;
+}
+function updateConnectivity() {
+  const offline = !navigator.onLine;
+  $('#offline-notice').hidden = !offline;
+  $('#checkout-button').disabled = offline || !app.menuLoaded || !app.cart.length;
+  $('#place-order-button').disabled = offline || app.submittingOrder;
 }
 function changeCart(id, action) {
   const line = app.cart.find(item => item.id === id);
@@ -153,7 +190,12 @@ async function placeOrder(event) {
   event.preventDefault();
   const button = $('#place-order-button');
   if (!$('#checkout-form').reportValidity()) return;
-  button.disabled = true;
+  if (!navigator.onLine) {
+    $('#checkout-error').textContent = 'You are offline. Your order has not been submitted. Reconnect and try again.';
+    return;
+  }
+  app.submittingOrder = true;
+  updateConnectivity();
   button.innerHTML = '<i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i> Saving your order…';
   $('#checkout-error').textContent = '';
   const form = new FormData(event.currentTarget);
@@ -173,10 +215,13 @@ async function placeOrder(event) {
     app.pendingCheckoutOrder = order.orderNumber;
     $('#confirm-scrim').classList.add('is-open');
   } catch (error) {
-    $('#checkout-error').textContent = error.message;
+    $('#checkout-error').textContent = navigator.onLine
+      ? error.message
+      : 'You are offline. Your order has not been submitted. Reconnect and try again.';
   } finally {
-    button.disabled = false;
     button.innerHTML = 'Place order <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>';
+    app.submittingOrder = false;
+    updateConnectivity();
   }
 }
 function statusClass(status) { return `status-${status.toLowerCase().replaceAll(' ', '-')}`; }
@@ -189,14 +234,19 @@ function renderGuestOrders() {
   container.innerHTML = app.orders.map(order => `<article class="guest-order-card"><div><span class="guest-order-id">${escapeHtml(order.orderNumber)}</span><div class="guest-order-meta">${escapeHtml(order.guestName)} · Room ${escapeHtml(order.roomNumber)} · ${manilaDate(order.createdAt, { dateStyle: 'medium', timeStyle: 'short' })}</div></div><div><div class="guest-order-items">${(order.items || []).map(item => `${item.quantity} × ${escapeHtml(item.name)}`).join(', ')}</div><div class="guest-order-total">${currency(order.total)}</div></div><span class="order-status ${statusClass(order.status)}">${escapeHtml(order.status)}</span></article>`).join('');
 }
 async function refreshGuestOrders() {
-  if (!app.orders.length) return;
-  const refreshed = await Promise.all(app.orders.map(async order => {
-    try { return await api(`/api/orders/${encodeURIComponent(order.orderNumber)}?token=${encodeURIComponent(order.accessToken)}`); }
-    catch { return order; }
-  }));
-  app.orders = refreshed;
-  save('hh_orders', app.orders);
-  if (location.hash === '#orders') renderGuestOrders();
+  if (!app.orders.length || app.guestPolling) return;
+  app.guestPolling = true;
+  try {
+    const refreshed = await Promise.all(app.orders.map(async order => {
+      try { return await api(`/api/orders/${encodeURIComponent(order.orderNumber)}?token=${encodeURIComponent(order.accessToken)}`); }
+      catch { return order; }
+    }));
+    app.orders = refreshed;
+    save('hh_orders', app.orders);
+    if (location.hash === '#orders') renderGuestOrders();
+  } finally {
+    app.guestPolling = false;
+  }
 }
 function setAdmin(admin) {
   app.admin = admin;
@@ -253,6 +303,8 @@ function selectAdminView(name) {
   if (panelName === 'reports') loadAdminSummary();
 }
 async function loadAdminData() {
+  if (app.adminLoading) return;
+  app.adminLoading = true;
   try {
     const [summary, orders] = await Promise.all([api('/api/admin/summary'), api('/api/admin/orders')]);
     app.adminOrders = orders;
@@ -263,6 +315,7 @@ async function loadAdminData() {
     renderGuests();
     renderAdminMenu();
   } catch (error) { if (app.admin) toast(error.message, true); }
+  finally { app.adminLoading = false; }
 }
 async function loadAdminSummary() {
   try { renderSummary(await api('/api/admin/summary')); } catch (error) { toast(error.message, true); }
@@ -542,11 +595,14 @@ document.addEventListener('keydown', event => {
   }
 });
 window.addEventListener('hashchange', routeFromHash);
-window.addEventListener('storage', event => { if (event.key === 'hh_orders') { app.orders = saved('hh_orders', []); renderGuestOrders(); } });
+window.addEventListener('storage', event => { if (event.key === 'hh_orders') { app.orders = saved('hh_orders', [], validOrders); renderGuestOrders(); } });
+window.addEventListener('online', updateConnectivity);
+window.addEventListener('offline', updateConnectivity);
 setInterval(() => { if (location.hash === '#orders' && document.visibilityState === 'visible') refreshGuestOrders(); }, 15000);
 
 $('#cart-room').value = saved('hh_room', '');
 $('#cart-room').addEventListener('input', event => save('hh_room', event.target.value));
 updateCartCount();
+updateConnectivity();
 loadMenu();
 routeFromHash();
