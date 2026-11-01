@@ -32,6 +32,7 @@ img { display: block; max-width: 100%; }
 .announcement a:hover { color: white; }
 .announcement a i { margin-left: 5px; font-size: 9px; }
 .announcement-divider { color: var(--gold); }
+.offline-notice { padding: 10px 6%; background: #fff3d8; color: #5a4520; text-align: center; font-size: 12px; }
 .status-dot { width: 6px; height: 6px; border-radius: 50%; background: #a7bf87; box-shadow: 0 0 0 3px rgb(167 191 135 / 13%); }
 .site-header { height: 79px; padding: 0 6.3%; display: flex; align-items: center; justify-content: space-between; gap: 28px; background: var(--paper); position: relative; z-index: 12; border-bottom: 1px solid rgb(40 45 38 / 7%); }
 .brand { display: inline-flex; align-items: center; flex: 0 0 auto; gap: 11px; }
