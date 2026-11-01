@@ -1,5 +1,5 @@
-const SHELL_CACHE = 'harbor-house-shell-v4';
-const RUNTIME_CACHE = 'harbor-house-runtime-v4';
+const SHELL_CACHE = 'harbor-house-shell-v5';
+const RUNTIME_CACHE = 'harbor-house-runtime-v5';
 const MENU_CACHE = 'harbor-house-menu-v1';
 const shellAssets = [
   '/',

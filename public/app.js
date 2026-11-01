@@ -238,7 +238,10 @@ async function refreshGuestOrders() {
   app.guestPolling = true;
   try {
     const refreshed = await Promise.all(app.orders.map(async order => {
-      try { return await api(`/api/orders/${encodeURIComponent(order.orderNumber)}?token=${encodeURIComponent(order.accessToken)}`); }
+      try {
+        const latest = await api(`/api/orders/${encodeURIComponent(order.orderNumber)}?token=${encodeURIComponent(order.accessToken)}`);
+        return { ...order, ...latest, accessToken: order.accessToken };
+      }
       catch { return order; }
     }));
     app.orders = refreshed;
