@@ -73,18 +73,6 @@ if (!db.prepare('SELECT id FROM admins WHERE email = ?').get(ADMIN_EMAIL)) {
 
 const sessions = new Map();
 const loginAttempts = new Map();
-const stateSweep = setInterval(() => {
-  const now = Date.now();
-  for (const [token, session] of sessions) {
-    if (session.expires < now) sessions.delete(token);
-  }
-  for (const [ip, attempts] of loginAttempts) {
-    const recent = attempts.filter(time => time > now - 15 * 60 * 1000);
-    if (recent.length) loginAttempts.set(ip, recent);
-    else loginAttempts.delete(ip);
-  }
-}, 15 * 60 * 1000);
-stateSweep.unref?.();
 const getCookie = (req, name) => (req.headers.cookie || '').split(';').map(part => part.trim()).find(part => part.startsWith(`${name}=`))?.slice(name.length + 1);
 const readBody = req => new Promise((resolve, reject) => {
   let size = 0;
@@ -95,14 +83,7 @@ const readBody = req => new Promise((resolve, reject) => {
     chunks.push(chunk);
   });
   req.on('end', () => {
-    try {
-      const body = chunks.length ? JSON.parse(Buffer.concat(chunks).toString('utf8')) : {};
-      if (!body || typeof body !== 'object' || Array.isArray(body)) {
-        reject(Object.assign(new Error('Request body must be a JSON object.'), { status: 400 }));
-        return;
-      }
-      resolve(body);
-    }
+    try { resolve(chunks.length ? JSON.parse(Buffer.concat(chunks).toString('utf8')) : {}); }
     catch { reject(Object.assign(new Error('Request body must be valid JSON.'), { status: 400 })); }
   });
   req.on('error', reject);
@@ -158,7 +139,6 @@ async function handleApi(req, res, url) {
     if (typeof instructions !== 'string' || instructions.length > 500) return json(res, 400, { error: 'Special requests must be 500 characters or fewer.' });
     const quantities = new Map();
     for (const item of items) {
-      if (!item || typeof item !== 'object' || Array.isArray(item)) return json(res, 400, { error: 'One or more order items are invalid.' });
       if (!Number.isSafeInteger(Number(item.id)) || !Number.isInteger(Number(item.quantity)) || Number(item.quantity) < 1 || Number(item.quantity) > 20) return json(res, 400, { error: 'One or more item quantities are invalid.' });
       quantities.set(Number(item.id), (quantities.get(Number(item.id)) || 0) + Number(item.quantity));
     }
@@ -351,5 +331,8 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(PORT, () => {
   console.log(`Harbor House ordering system: http://localhost:${PORT}`);
-  if (process.env.NODE_ENV !== 'production') console.warn('Demo credentials are enabled. Set ADMIN_EMAIL and ADMIN_PASSWORD before deployment.');
+  console.log(`Admin account configured for: ${ADMIN_EMAIL}`);
+  if (process.env.NODE_ENV !== 'production' && (!process.env.ADMIN_EMAIL || !process.env.ADMIN_PASSWORD)) {
+    console.warn('Demo credentials are enabled. Set ADMIN_EMAIL and ADMIN_PASSWORD before deployment.');
+  }
 });
