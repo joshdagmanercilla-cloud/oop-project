@@ -23,15 +23,13 @@ Local staff login:
 - Email: `admin@harborhouse.test`
 - Password: `RoomService2026!`
 
-These are demo credentials for local development. To create the first admin account with your own credentials, set `ADMIN_EMAIL` and `ADMIN_PASSWORD` before the very first start. In PowerShell:
+These are demo credentials for local development. To create an admin with your own credentials, set `ADMIN_EMAIL` in `hello.ps1` to your email and run the script in PowerShell. It asks for the password without displaying it:
 
 ```powershell
-$env:ADMIN_EMAIL = "staff@yourhotel.com"
-$env:ADMIN_PASSWORD = "Use-a-long-unique-password"
-node server.js
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\hello.ps1
 ```
 
-The first admin password is salted and hashed with Node's `scrypt`; it is not stored in plaintext in the database. Changing the environment variables later does not replace an existing admin account. The database can be reset for local development by stopping the server and removing `data/hotel.sqlite`.
+The admin password is salted and hashed with Node's `scrypt`; it is not stored in plaintext in the database. Starting with an email that already has an account does not change its password; a different email creates an additional admin. The database can be reset for local development by stopping the server and removing `data/hotel.sqlite`, which deletes saved orders and menu changes.
 
 ## Database and persistence
 
